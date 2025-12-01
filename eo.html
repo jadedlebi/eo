@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Executive Orders Treemap</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .node {
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 4px;
+      margin: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: absolute;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .node:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      border-color: rgba(255,255,255,0.6);
+      filter: brightness(0.8) saturate(0.7);
+    }
+
+    /* Individual EO box hover highlight */
+    .node:hover {
+      filter: brightness(1.4) saturate(0.9);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+
+    .node-label {
+      font-size: 18px;
+      padding: 4px;
+      color: white;
+      pointer-events: none;
+    }
+
+    .tooltip {
+      position: absolute;
+      background-color: #333;
+      color: #fff;
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1000;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      backdrop-filter: blur(5px);
+      opacity: 0;
+      transition: opacity 0.4s ease-in-out;
+    }
+
+    .modal.show {
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: #3b82f6;
+      color: white;
+      margin: 2% auto;
+      padding: 0;
+      border-radius: 20px;
+      width: 80%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow: hidden;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+      transform: scale(0.7) translateY(-50px);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+    }
+
+    .modal.show .modal-content {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      background: #1e40af;
+      padding: 20px 30px;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      position: relative;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .modal-subtitle {
+      margin: 8px 0 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+      font-weight: 300;
+    }
+
+    .close {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      color: rgba(255,255,255,0.8);
+      font-size: 26px;
+      font-weight: 300;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .close:hover {
+      color: white;
+      background: rgba(255,255,255,0.2);
+      transform: rotate(90deg);
+    }
+
+    .modal-body {
+      padding: 22px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .modal-body::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .modal-body::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.3);
+      border-radius: 4px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.5);
+    }
+
+    .response-item {
+      background: #60a5fa;
+      padding: 16px;
+      margin: 10px 0;
+      border-radius: 15px;
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      transform: translateX(-20px);
+      opacity: 0;
+      animation: slideInLeft 0.6s ease forwards;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .response-item:nth-child(1) { animation-delay: 0.1s; }
+    .response-item:nth-child(2) { animation-delay: 0.2s; }
+    .response-item:nth-child(3) { animation-delay: 0.3s; }
+    .response-item:nth-child(4) { animation-delay: 0.4s; }
+    .response-item:nth-child(5) { animation-delay: 0.5s; }
+
+    .response-item:hover {
+      transform: translateY(-5px);
+      background: #93c5fd;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .response-item::before {
+      content: '"';
+      position: absolute;
+      top: 10px;
+      left: 16px;
+      font-size: 36px;
+      color: rgba(255,255,255,0.3);
+      font-family: Georgia, serif;
+      line-height: 1;
+    }
+
+    .response-item::after {
+      content: '"';
+      position: absolute;
+      bottom: 10px;
+      right: 16px;
+      font-size: 36px;
+      color: rgba(255,255,255,0.3);
+      font-family: Georgia, serif;
+      line-height: 1;
+    }
+
+    .response-text {
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      font-weight: 400;
+      font-style: italic;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .response-meta {
+      font-size: 11px;
+      opacity: 0.7;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: right;
+      padding-right: 16px;
+    }
+
+    @keyframes slideInLeft {
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in-up {
+      animation: fadeInUp 0.6s ease forwards;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="chart" style="width: 100%; height: 100vh; position: relative;"></div>
+  <div class="tooltip" id="tooltip"></div>
+
+  <!-- Modal for displaying text responses -->
+  <div id="responseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="close">&times;</span>
+        <h2 class="modal-title" id="modalTitle"></h2>
+        <p class="modal-subtitle" id="modalSubtitle"></p>
+      </div>
+      <div class="modal-body" id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    // EO data embedded directly to avoid CORS issues
+    const data = {
+      "name": "All Executive Orders",
+      "children": [
+        {
+          "name": "EO-RFPR",
+          "tag_path": "EO-RFPR",
+          "tag_description": "Regulatory Freeze Pending Review memo",
+          "value": 63,
+          "highlights": [
+            "By threatening to eliminate or severely weaken what the Office of Management and Budget (OMB) considers statutory support for the CDFI Fund, this executive action puts at risk the very mechanisms designed to channel capital and resources into underinvested communities.",
+            "A $1 million EPA CCIA grant intended to increase our human and technological capacity was revoked.",
+            "Sister organization lost $20 million grant.",
+            "GGRF-we had a signed contract for $10M which has now been canceled."
+          ]
+        },
+        {
+          "name": "EO 14151",
+          "tag_path": "EO 14151",
+          "tag_description": "Ending Radical And Wasteful Government DEI Programs And Preferencing",
+          "value": 55,
+          "highlights": [
+            "As a Black-led, Black-controlled organization serving a majority Black population in a low-income community, we have felt the direct impact of these executive orders. These directives are not neutral policy shifts‚ they are targeted measures that undermine the infrastructure supporting economic justice, racial equity, and community resilience.",
+            "We have seen job loss and overall, less equitable treatment within spaces, where many feel emboldened to no longer hire/retain and/or equitably serve people of color.",
+            "The removal of DEI and EJ frameworks from federal policy not only threatens funding but also emboldens divisive rhetoric and actions that make our work more difficult and our staff more vulnerable.",
+            "Address systemic disinvestment, and foster local resilience. The harm inflicted by Executive Order 14151 is real‚ jobs lost, projects halted."
+          ]
+        },
+        {
+          "name": "EO 14287",
+          "tag_path": "EO 14287",
+          "tag_description": "Executive Order on Sanctuary Cities",
+          "value": 28,
+          "highlights": [
+            "Employees who are immigrants and here legally live in fear and have asked how we can protect them if they are detained.",
+            "Our organization has experienced significant changes in how we serve immigrant communities.",
+            "The sanctuary city policies have created uncertainty about our ability to provide services.",
+            "Some of our clients are hesitant to access services due to immigration concerns."
+          ]
+        },
+        {
+          "name": "EO 14218",
+          "tag_path": "EO 14218",
+          "tag_description": "Ending Taxpayer Subsidization of Open Borders",
+          "value": 8,
+          "highlights": [
+            "Our grants program has been significantly impacted by the new border policies.",
+            "The changes have affected our ability to serve border communities effectively.",
+            "Some of our international partnership programs have been curtailed."
+          ]
+        },
+        {
+          "name": "EO 14148",
+          "tag_path": "EO 14148",
+          "tag_description": "Initial Recissions of Harmful Executive Orders and Actions",
+          "value": 17,
+          "highlights": [
+            "EPA Community Hub Grant of $19 million was terminated",
+            "Several of our environmental justice programs have been affected by the recissions.",
+            "Cancellations/Termination of EPA grant related to healthy housing.",
+            "The changes have created uncertainty about our environmental programming."
+          ]
+        },
+        {
+          "name": "EO 14281",
+          "tag_path": "EO 14281",
+          "tag_description": "Restoring Equality of Opportunity and Meritocracy",
+          "value": 8,
+          "highlights": [
+            "Reduced Consumer Protections: Policy shifts, particularly rollbacks in consumer financial protections, introduced a higher risk of predatory lending in the marketplace.",
+            "The Executive Order that effectively shut down CFPB and the Executive Order that to cut all non-essential programs, effectively shutting down the VA's VASP Modification program.",
+            "Banks are in a hold pattern to see what will happen with new CRA and other regulatory processes, to see if it is necessary to continue lending and collaborating with small scale and small business lending CDFI's, which has lowered our limit of lending in the last few months.",
+            "The rollbacks in consumer financial protections left our clients more vulnerable to high-cost or predatory lending."
+          ]
+        },
+        {
+          "name": "EO 14173",
+          "tag_path": "EO 14173",
+          "tag_description": "Ending Illegal Discrimination and Restoring Merit-Based Opportunity",
+          "value": 7,
+          "highlights": [
+            "Our anti-discrimination training programs have been affected by the policy changes.",
+            "Americorps - Many rural organizations were using this program to fund positions within their agencies. Some could lose up to 25% of their staff.",
+            "The changes have created challenges for our diversity and inclusion efforts."
+          ]
+        },
+        {
+          "name": "EO 14331",
+          "tag_path": "EO 14331",
+          "tag_description": "Guaranteeing Fair Banking for All Americans",
+          "value": 7,
+          "highlights": [
+            "During this period, there were significant proposed cuts and regulatory changes to federal programs supporting small businesses, particularly those benefiting women, minorities, and low-income individuals.",
+            "Our financial literacy and banking access programs have been affected.",
+            "We're working to ensure our clients maintain access to fair banking services."
+          ]
+        },
+        {
+          "name": "EO 14238",
+          "tag_path": "EO 14238",
+          "tag_description": "Continuing the Reduction of the Federal Bureaucracy",
+          "value": 12,
+          "highlights": [
+            "Our organization has experienced increased bureaucratic challenges in accessing federal programs.",
+            "We've had to navigate more complex application and reporting requirements.",
+            "Under the guise of reducing federal bureaucracy, [EO 14238] has raised significant concerns about the future of the CDFI Fund."
+          ]
+        },
+        {
+          "name": "EO 14192",
+          "tag_path": "EO 14192",
+          "tag_description": "Unleashing Prosperity Through Deregulation",
+          "value": 4,
+          "highlights": [
+            "The USDA cuts to local food for schools.",
+            "[EO 14192] canceled a $1M USDA grant."
+          ]
+        },
+        {
+          "name": "EO 14180",
+          "tag_path": "EO 14180",
+          "tag_description": "Council To Assess the Federal Emergency Management Agency",
+          "value": 1,
+          "highlights": [
+            "Our disaster preparedness and recovery programs have been affected by the FEMA assessment."
+          ]
+        },
+        {
+          "name": "EO 14158",
+          "tag_path": "EO 14158",
+          "tag_description": "Establishing and Implementing the President's Department of Government Efficiency",
+          "value": 6,
+          "highlights": [
+            "DOGE taking action against AmeriCorps/NCCC and gutting the organization by cutting staff and sending members home."
+          ]
+        }
+      ]
+    };
+
+    const width = document.getElementById("chart").clientWidth;
+    const height = window.innerHeight;
+
+    const tooltip = d3.select("#tooltip");
+    const modal = document.getElementById("responseModal");
+    const modalContent = document.getElementById("modalContent");
+    const closeBtn = document.querySelector(".close");
+
+    // Close modal when clicking X or outside modal
+    closeBtn.onclick = function() {
+      closeModal();
+    }
+
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        closeModal();
+      }
+    }
+
+    function closeModal() {
+      modal.classList.remove('show');
+      setTimeout(() => {
+        modal.style.display = "none";
+      }, 400);
+    }
+
+    const treemap = data => {
+      return d3.treemap()
+        .size([width, height])
+        .paddingInner(1)
+        .paddingOuter(0)
+        .paddingTop(0)
+        .paddingRight(0)
+        .paddingBottom(0)
+        .paddingLeft(0)
+        (d3.hierarchy(data)
+          .sum(d => d.value)
+          .sort((a, b) => b.value - a.value));
+    };
+
+    // Color scheme based on response count (keeping your preferred colors)
+    const getColorByResponses = (value) => {
+      const colors = [
+        '#4fc3f7',  // Light blue - fewest responses
+        '#29b6f6',  // Light blue
+        '#03a9f4',  // Medium light blue
+        '#039be5',  // Medium blue
+        '#0288d1',  // Medium dark blue
+        '#0277bd',  // Dark blue
+        '#01579b',  // Darker blue
+        '#0d47a1',  // Very dark blue
+        '#001f3f'   // Darkest navy - most responses
+      ];
+      
+      // Map value ranges to color indices
+      if (value <= 5) return colors[0];
+      if (value <= 8) return colors[1];
+      if (value <= 10) return colors[2];
+      if (value <= 15) return colors[3];
+      if (value <= 20) return colors[4];
+      if (value <= 25) return colors[5];
+      if (value <= 30) return colors[6];
+      if (value <= 35) return colors[7];
+      return colors[8];
+    };
+
+    function createTreemap() {
+      if (!data) return;
+      
+      // Clear existing chart
+      d3.select("#chart").selectAll("*").remove();
+      
+      const root = treemap(data);
+      const chart = d3.select("#chart").style("position", "relative");
+
+      const nodes = chart.selectAll(".node")
+        .data(root.leaves())
+        .enter()
+        .append("div")
+        .attr("class", "node")
+        .style("left", d => d.x0 + "px")
+        .style("top", d => d.y0 + "px")
+        .style("width", d => d.x1 - d.x0 + "px")
+        .style("height", d => d.y1 - d.y0 + "px")
+        .style("background", d => getColorByResponses(d.data.value))
+        .on("mousemove", (event, d) => {
+          tooltip.style("left", event.pageX + 10 + "px")
+                 .style("top", event.pageY - 10 + "px")
+                 .style("opacity", 1)
+                 .html(`
+                   <strong style="font-size: 100px">${d.data.tag_path}</strong>
+                   <br/>
+                   <span style="font-size: 30px">${d.data.tag_description}</span>
+                   <br/>
+                   <em style="font-size: 20px;font-style: italic; opacity: 0.7">Click to see details</em>
+                 `);
+        })
+        .on("mouseout", () => {
+          tooltip.style("opacity", 0);
+        })
+        .on("click", (event, d) => {
+          showResponses(d.data);
+        });
+
+      nodes.append("div")
+        .attr("class", "node-label")
+        .text(d => d.data.tag_path);
+    }
+
+    function showResponses(eoData) {
+      const highlights = eoData.highlights || [];
+      
+      // Update modal header
+      document.getElementById('modalTitle').textContent = eoData.tag_path;
+      document.getElementById('modalSubtitle').textContent = eoData.tag_description;
+      
+      // Build highlights content
+      let html = '';
+      if (highlights.length > 0) {
+        highlights.forEach((highlight, index) => {
+          html += `
+            <div class="response-item">
+              <div class="response-text">${highlight}</div>
+            </div>
+          `;
+        });
+      } else {
+        html += '<div class="response-item"><em>No responses available for this Executive Order.</em></div>';
+      }
+      
+      modalContent.innerHTML = html;
+      
+      // Show modal with animation
+      modal.style.display = "block";
+      setTimeout(() => {
+        modal.classList.add('show');
+      }, 10);
+    }
+
+    // Create treemap immediately since data is embedded
+    createTreemap();
+  </script>
+</body>
+</html>
