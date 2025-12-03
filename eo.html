@@ -502,16 +502,46 @@
         .style("height", d => d.y1 - d.y0 + "px")
         .style("background", d => getColorByResponses(d.data.value))
         .on("mousemove", (event, d) => {
-          tooltip.style("left", event.pageX + 10 + "px")
-                 .style("top", event.pageY - 10 + "px")
-                 .style("opacity", 1)
-                 .html(`
-                   <strong style="font-size: 100px">${d.data.tag_path}</strong>
-                   <br/>
-                   <span style="font-size: 30px">${d.data.tag_description}</span>
-                   <br/>
-                   <em style="font-size: 20px;font-style: italic; opacity: 0.7">Click to see details</em>
-                 `);
+          // First update content & make it visible so we can measure it
+          tooltip
+            .style("opacity", 1)
+            .html(`
+              <strong style="font-size: 100px">${d.data.tag_path}</strong>
+              <br/>
+              <span style="font-size: 30px">${d.data.tag_description}</span>
+            `);
+        
+          const padding = 10;
+        
+          const tooltipNode = tooltip.node();
+          const rect = tooltipNode.getBoundingClientRect();
+        
+          const viewportWidth  = document.documentElement.clientWidth;
+          const viewportHeight = document.documentElement.clientHeight;
+        
+          // Start with a “default” position: right of and slightly above cursor
+          let x = event.clientX + padding;
+          let y = event.clientY - rect.height - padding;
+        
+          // If that goes off the top, move it below the cursor
+          if (y < padding) {
+            y = event.clientY + padding;
+          }
+        
+          // If it goes off the right edge, flip it to the left of the cursor
+          if (x + rect.width + padding > viewportWidth) {
+            x = event.clientX - rect.width - padding;
+            if (x < padding) x = padding; // clamp to left edge
+          }
+        
+          // If it still goes off the bottom, clamp to bottom
+          if (y + rect.height + padding > viewportHeight) {
+            y = viewportHeight - rect.height - padding;
+          }
+        
+          tooltip
+            .style("left", x + "px")
+            .style("top", y + "px");
         })
         .on("mouseout", () => {
           tooltip.style("opacity", 0);
